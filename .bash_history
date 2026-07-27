@@ -557,3 +557,226 @@ wc -l src/components/ThreeDAvatarCanvas.tsx
 npm run dev
 pwd
 nano src/components/ThreeDAvatarCanvas.tsx
+cd ~/nexus-ai-agent
+ls
+nano src/components/ThreeDAvatarCanvas.tsx
+pwd
+nano src/components/ThreeDAvatarCanvas.tsx
+npm run dev
+ls -l public/avatars
+cd ~/nexus-ai-agent
+cp src/components/ThreeDAvatarCanvas.tsx src/components/ThreeDAvatarCanvas.backup.tsx
+tree -L 3
+find . -name "nexus.glb"
+npm run dev
+find . -name "nexus.glb"
+ls -lah public/avatars
+npm run dev
+cd ~/nexus-ai-agent
+find . -name "ThreeDAvatarCanvas.tsx"
+cd ~/nexus-ai-agent
+npm install
+npm run dev
+find public -name "*.glb"
+ls -R public
+cd ~/nexus-ai-agent
+find public -name "*.glb"
+ls -R public
+cd ~/nexus-ai-agent
+find . -name "nexus.glb"
+pwd
+ls public
+ls public/avatars
+npm run dav
+npm run dev
+git status
+git add .
+pwd
+cd
+git status
+git add .
+git commit -m "Fix Gemini API integration and update Nexus AI"
+ls -la
+git init
+git add .
+git commit -m "Initial Nexus AI project"
+https://github.com/muhammadlai/nexus-ai-agent.git
+cd ~
+mv nexus-ai-agent nexus-ai-agent-backup
+git clone https://github.com/muhammadlai/nexus-ai-agent.git
+cd nexus-ai-agent
+cp -r ~/nexus-ai-agent-backup/* ~/nexus-ai-agent/
+cp -r ~/nexus-ai-agent-backup/.* ~/nexus-ai-agent/ 2>/dev/null
+cp -r ~/nexus-ai-agent-backup/* ~/nexus-ai-agent/
+cp -r ~/nexus-ai-agent-backup/.* ~/nexus-ai-agent/ 2>/dev/n
+git status
+git add .
+git commit -m "Update Nexus AI project"
+git push origin main
+npm install
+npm run dev
+ls
+find . -name package.json
+cd nexus-ai-agent
+npm install
+npm run dev
+git add .
+git commit -m "Update project"
+git push origin main
+git init
+git add .
+git commit -m "Initial commit"
+git branch -M main
+git remote add origin https://github.com/USERNAME/REPOSITORY.git
+git push -u origin main
+unzip nexus-ai---real-time-voice-\&-3d-avatar-assistant\(1\).zip
+cd nexus-ai---real-time-voice-\&-3d-avatar-assistant
+git add .
+git commit -m "Update project"
+git push origin main
+git remote remove origin
+git remote add origin https://github.com/muhammadlai/nexus-ai-agent.git
+git remote -v
+git push -u origin main
+git pull origin main --allow-unrelated-histories
+git add .
+git commit -m "Merge remote changes"
+git push origin main
+git push --force origin main
+git pull --no-rebase origin main --allow-unrelated-histories
+git add .
+git commit -m "Merge remote changes"
+git push origin maingit add .
+git commit -m "Merge remote changes"
+git push origin main
+git push --force origin main
+git status
+git log --oneline -1
+git remote -v
+git ls-remote origin
+git status
+git log --oneline -1
+git remote -v
+npm install
+npm run dev
+git status
+git log --oneline -1
+pwd
+ls
+git status
+git log --oneline -1
+npm run dev
+cd ~
+unzip "/mnt/data/nexus-ai-creator-os(3).zip"
+cd nexus-ai-creator-os
+git init
+git branch -M main
+git remote remove origin 2>/dev/null
+git remote add origin https://github.com/muhammadlai/nexus-ai-agent.git
+git add .
+git commit -m "Upload latest Nexus AI Creator OS"
+git push --force origin main
+cd ~
+unzip "/mnt/data/nexus-ai-creator-os(3).zip"
+cd nexus-ai-creator-os
+git init
+git branch -M main
+git remote remove origin 2>/dev/null
+git remote add origin https://github.com/muhammadlai/nexus-ai-agent.git
+git add .
+git commit -m "Upload latest Nexus AI Creator OS"
+git push --force origin main\
+ls
+cd nexus-ai-agent
+git add .
+git commit -m "Upload latest Nexus AI Creator OS"
+git push --force origin main
+cd nexus-ai-agent
+npm install
+npm run dev
+cd ~/nexus-ai-agent/nexus-ai-agent
+npm install
+npm run dev
+pwd
+ls
+cat package.json
+ls src/components
+cd ~/nexus-ai-agent/nexus-ai-agent
+unzip "/mnt/data/nexus-ai-creator-os (1).zip"
+cp -r nexus-ai-creator-os/* .
+cp -r nexus-ai-creator-os/.[!.]* . 2>/dev/null
+git add .
+git commit -m "Update Nexus AI Creator OS"
+git push --force origin main
+ls
+find . -name "*.zip"
+git push --force origin main
+find . -name "*.zip"
+find ~ -name "*.zip"
+unzip "/exact/path/to/your-file.zip"
+find ~ -name "*.zip"
+cd ~/nexus-ai-agent/nexus-ai-agent
+unzip "/home/aitzazji91/Downloads/nexus-ai-creator-os (1)(1).zip" -o
+git add .
+git commit -m "Update Nexus AI Creator OS v2"
+git push --force origin main
+cd ~/nexus-ai-agent/nexus-ai-agent
+unzip "/home/aitzazji91/Downloads/nexus-ai-creator-os (1)(1).zip" -o
+git add .
+git commit -m "Update Nexus AI Creator OS v2"
+git push --force origin main
+find ~ -name "*.zip"
+nexus-ai-creator-os (1)(1).zip
+find ~ -name "nexus-ai-creator-os*.zip"
+cd ~/nexus-ai-agent/nexus-ai-agent
+unzip "/home/aitzazji91/nexus-ai-creator-os (1)(1).zip" -o
+git add .
+git commit -m "Update Nexus AI Creator OS"
+git push --force origin main
+cd ~/nexus-ai-agent/nexus-ai-agent
+unzip ~/nexus-ai-creator-os\ \(1\).zip -o
+git status
+git add .
+git commit -m "Update Nexus AI Creator OS"
+git push --force origin main
+ls
+ls -lh ~
+unzip -l ~/nexus-ai-creator-os\ \(1\).zip
+mkdir ~/nexus-test
+cd ~/nexus-test
+unzip ~/nexus-ai-creator-os\ \(1\).zip
+cd ~/nexus-ai-agent/nexus-ai-agent
+npm install
+npm run dev
+git status
+ls src/components
+cat package.json
+cat src/App.tsx
+ls src/components
+cd ~
+mkdir nexus-temp
+cd nexus-temp
+unzip ~/nexus-ai-creator-os\ \(1\).zip
+ls
+cp -r src/* ~/nexus-ai-agent/nexus-ai-agent/src/
+cp package.json ~/nexus-ai-agent/nexus-ai-agent/
+cd ~/nexus-ai-agent/nexus-ai-agent
+npm install
+git add .
+git commit -m "Merge Nexus AI Creator OS"
+git push origin main
+ls src/components
+git status
+npm install
+npm run dev
+cd ~/nexus-ai-agent/nexus-ai-agent
+ls
+cd ~/nexus-ai-agent/nexus-ai-agent
+ls
+cd ~/nexus-ai-agent/nexus-ai-agent
+git status
+ls src/components
+cd ~/nexus-ai-agent/nexus-ai-agent
+git add .
+git commit -m "Backup before Nexus AI merge"
+nano src/App.tsx

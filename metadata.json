@@ -1,0 +1,6 @@
+{
+  "name": "Nexus AI Creator OS Enterprise v2",
+  "description": "Enterprise-grade AI Creator OS platform with Cyberpunk Glassmorphism interface, authentication, layout system, and core state architecture.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

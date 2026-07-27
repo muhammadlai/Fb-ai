@@ -1,6 +1,0 @@
-{
-  "name": "Nexus AI Agent",
-  "description": "Full-stack Nexus AI Agent platform with FastAPI backend, n8n webhook integration, AI agent chat, workflow automations, and deployment suite.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

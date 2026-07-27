@@ -1,6 +1,0 @@
-{
-  "name": "Nexus AI Agent",
-  "description": "Next-generation Nexus AI Creator Operating System featuring Voice Assistant, AI Creator Studio, n8n workflow automation, vector RAG knowledge base, and multimodal generation.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
