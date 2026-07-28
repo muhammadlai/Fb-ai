@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { AlertCircle, ArrowRight, Sparkles, Zap } from "lucide-react";
+import { AlertCircle, ArrowRight, Zap } from "lucide-react";
 
 /** Official Facebook "f" glyph - lucide v1 no longer ships brand icons. */
 function FacebookIcon({ className }: { className?: string }) {
@@ -28,7 +28,7 @@ function humanizeError(code?: string): string {
     case "AccessDenied":
       return "Access denied. You cancelled the Facebook prompt or the app lacks permission.";
     case "Configuration":
-      return "Authentication is not configured correctly. Check the server environment variables.";
+      return "Facebook OAuth is not configured correctly on the server. Add AUTH_FACEBOOK_ID, AUTH_FACEBOOK_SECRET, AUTH_SECRET, NEXTAUTH_URL, DATABASE_URL, and ENCRYPTION_SECRET in Vercel.";
     default:
       return code;
   }
@@ -41,18 +41,17 @@ interface AuthFormProps {
   initialError?: string;
 }
 
-export function AuthForm({ mode, facebookEnabled, callbackUrl, initialError }: AuthFormProps) {
+export function AuthForm({ mode, callbackUrl, initialError }: AuthFormProps) {
   const isRegister = mode === "register";
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState(isRegister ? "" : "demo@socialai.com");
-  const [password, setPassword] = useState(isRegister ? "" : "password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState<"credentials" | "facebook" | null>(null);
   const [errorMsg, setErrorMsg] = useState(humanizeError(initialError));
 
-  const submitCredentials = async (e?: React.FormEvent, override?: { email: string; password: string }) => {
+  const submitCredentials = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    const creds = override ?? { email, password };
 
     try {
       setLoading("credentials");
@@ -62,7 +61,7 @@ export function AuthForm({ mode, facebookEnabled, callbackUrl, initialError }: A
         const res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email: creds.email, password: creds.password }),
+          body: JSON.stringify({ name, email, password }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || "Registration failed");
@@ -71,14 +70,14 @@ export function AuthForm({ mode, facebookEnabled, callbackUrl, initialError }: A
       // `redirect: false` lets us surface the error inline instead of bouncing
       // to Auth.js' own error page.
       const result = await signIn("credentials", {
-        email: creds.email,
-        password: creds.password,
+        email,
+        password,
         redirect: false,
         callbackUrl,
       });
 
       if (result?.error) throw new Error(humanizeError(result.error));
-      window.location.href = result?.url || callbackUrl;
+      window.location.assign(result?.url || callbackUrl);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Something went wrong");
       setLoading(null);
@@ -88,8 +87,10 @@ export function AuthForm({ mode, facebookEnabled, callbackUrl, initialError }: A
   const handleFacebook = async () => {
     setLoading("facebook");
     setErrorMsg("");
-    // Full-page redirect to Facebook; Auth.js handles the callback.
-    await signIn("facebook", { callbackUrl });
+    // Full-page redirect to the official facebook.com OAuth dialog. If the
+    // visitor is already signed into Facebook, Facebook renders "Continue as
+    // <Facebook User>" on that hosted OAuth screen.
+    await signIn("facebook", { callbackUrl: "/dashboard" });
   };
 
   return (
@@ -108,7 +109,7 @@ export function AuthForm({ mode, facebookEnabled, callbackUrl, initialError }: A
             {isRegister ? "Create your SocialAI account" : "Log in to SocialAI Control Hub"}
           </h2>
           <p className="text-xs text-slate-400">
-            Manage your Facebook Pages and AI social campaigns
+            Manage your real Facebook account, Pages, and AI social campaigns
           </p>
         </div>
 
@@ -123,26 +124,15 @@ export function AuthForm({ mode, facebookEnabled, callbackUrl, initialError }: A
         )}
 
         <div className="p-6 rounded-2xl bg-slate-900 border border-slate-800 space-y-5 shadow-2xl">
-          {facebookEnabled ? (
-            <button
-              type="button"
-              onClick={handleFacebook}
-              disabled={loading !== null}
-              className="w-full py-3 px-4 rounded-xl bg-[#1877F2] hover:bg-[#166FE5] text-white font-extrabold text-xs shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition disabled:opacity-60"
-            >
-              <FacebookIcon className="w-4 h-4" />
-              <span>
-                {loading === "facebook" ? "Redirecting to Facebook..." : "Continue with Facebook"}
-              </span>
-            </button>
-          ) : (
-            <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700 text-[11px] text-slate-400 leading-relaxed">
-              <span className="font-bold text-slate-300">Facebook Login is not configured.</span>{" "}
-              Set <code className="text-indigo-300">AUTH_FACEBOOK_ID</code> and{" "}
-              <code className="text-indigo-300">AUTH_FACEBOOK_SECRET</code> in your environment to
-              enable it.
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={handleFacebook}
+            disabled={loading !== null}
+            className="w-full py-4 px-5 rounded-2xl bg-[#1877F2] hover:bg-[#166FE5] text-white font-extrabold text-base shadow-lg shadow-blue-500/25 flex items-center justify-center gap-3 transition disabled:opacity-60"
+          >
+            <FacebookIcon className="w-6 h-6" />
+            <span>{loading === "facebook" ? "Opening Facebook..." : "Continue with Facebook"}</span>
+          </button>
 
           <div className="relative flex items-center justify-center">
             <span className="bg-slate-900 px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500 z-10">
@@ -220,34 +210,6 @@ export function AuthForm({ mode, facebookEnabled, callbackUrl, initialError }: A
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {!isRegister && (
-            <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-800/50 text-xs space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-bold text-indigo-300 flex items-center gap-1">
-                  <Sparkles className="w-3.5 h-3.5 text-yellow-400" /> Instant Demo Account
-                </span>
-                <button
-                  type="button"
-                  disabled={loading !== null}
-                  onClick={() => {
-                    setEmail("demo@socialai.com");
-                    setPassword("password123");
-                    submitCredentials(undefined, {
-                      email: "demo@socialai.com",
-                      password: "password123",
-                    });
-                  }}
-                  className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[10px] disabled:opacity-50"
-                >
-                  1-Click Demo Login
-                </button>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Requires the demo dataset (<code>SEED_DEMO_DATA=true</code>).
-              </p>
-            </div>
-          )}
         </div>
 
         <p className="text-center text-xs text-slate-500">

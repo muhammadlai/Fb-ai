@@ -3,90 +3,74 @@
 import React, { useEffect, useState } from "react";
 import {
   Share2,
-  Plus,
   Trash2,
-  ShieldCheck,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
   Lock,
   RefreshCw,
+  UserCircle,
+  Flag,
 } from "lucide-react";
 
 export default function ConnectedAccountsPage() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams(window.location.search);
+    return params.get("error") || "";
+  });
 
   useEffect(() => {
-    fetchAccounts();
+    let active = true;
 
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("connected")) {
-      setErrorMsg("");
-    }
-    if (params.get("error")) {
-      setErrorMsg(params.get("error") || "OAuth authorization failed");
-    }
-  }, []);
-
-  const fetchAccounts = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/accounts");
-      const data = await res.json();
-      if (data.accounts) {
-        setAccounts(data.accounts);
+    async function loadAccounts() {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/accounts");
+        const data = await res.json();
+        if (active && data.accounts) {
+          setAccounts(data.accounts);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (active) setLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    loadAccounts();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleConnectFacebookOAuth = async () => {
     try {
       setConnecting(true);
+      setErrorMsg("");
       const res = await fetch("/api/auth/facebook");
       const data = await res.json();
 
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to initialize Facebook OAuth");
+      }
+
       if (data.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       } else {
         setErrorMsg("Failed to initialize Meta OAuth URL");
       }
-    } catch (err: any) {
-      setErrorMsg(err.message);
-    } finally {
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to initialize Facebook OAuth");
       setConnecting(false);
     }
   };
 
-  const handleConnectDemoPage = async (platform: string, name: string) => {
-    try {
-      const res = await fetch("/api/accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          platform,
-          name,
-          username: `@${name.toLowerCase().replace(/\s+/g, "")}`,
-          category: "Business",
-        }),
-      });
-      const data = await res.json();
-      if (data.account) {
-        setAccounts([...accounts, data.account]);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const handleDisconnect = async (id: string) => {
-    if (!confirm("Are you sure you want to disconnect this account?")) return;
+    if (!confirm("Are you sure you want to disconnect this Facebook account or Page?")) return;
     try {
       await fetch(`/api/accounts?id=${id}`, { method: "DELETE" });
       setAccounts(accounts.filter((a) => a.id !== id));
@@ -95,26 +79,29 @@ export default function ConnectedAccountsPage() {
     }
   };
 
+  const facebookAccount = accounts.find((acc) => acc.platform === "facebook_user");
+  const facebookPages = accounts.filter((acc) => acc.platform === "facebook_page");
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            <Share2 className="w-6 h-6 text-indigo-600" /> Social Channels & Meta OAuth
+            <Share2 className="w-6 h-6 text-indigo-600" /> Facebook Account & Pages
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Connect Facebook Pages, Instagram, and social channels with AES-256 token encryption.
+            Connect a real Facebook account, fetch managed Pages from Graph API, and store tokens with AES-256 encryption.
           </p>
         </div>
 
         <button
           onClick={handleConnectFacebookOAuth}
           disabled={connecting}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-500/25 transition"
+          className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[#1877F2] hover:bg-[#166FE5] text-white font-bold text-xs shadow-lg shadow-blue-500/25 transition disabled:opacity-60"
         >
           {connecting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-          <span>Connect via Official Facebook OAuth</span>
+          <span>{connecting ? "Opening Facebook..." : "Reconnect Facebook OAuth"}</span>
         </button>
       </div>
 
@@ -126,13 +113,13 @@ export default function ConnectedAccountsPage() {
           </div>
           <div className="space-y-0.5">
             <p className="text-xs font-extrabold flex items-center gap-2">
-              AES-256 Access Token Encryption Active
+              Real Facebook OAuth + AES-256 Access Token Encryption
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold uppercase">
-                Meta Compliant
+                No Demo Tokens
               </span>
             </p>
             <p className="text-[11px] text-slate-400">
-              Page access tokens are encrypted with military-grade AES-256 prior to database storage.
+              User and Page access tokens are encrypted before storage and are never returned by the API.
             </p>
           </div>
         </div>
@@ -145,92 +132,109 @@ export default function ConnectedAccountsPage() {
         </div>
       )}
 
-      {/* Connected Channels List */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Active Social Channels</h3>
-
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <RefreshCw className="w-6 h-6 text-indigo-600 animate-spin" />
-          </div>
-        ) : accounts.length === 0 ? (
-          <div className="p-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center space-y-3">
-            <Share2 className="w-10 h-10 text-slate-400 mx-auto" />
-            <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">No accounts connected yet.</p>
-            <button
-              onClick={handleConnectFacebookOAuth}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white font-bold text-xs"
-            >
-              Connect Facebook Page
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {accounts.map((acc) => (
-              <div
-                key={acc.id}
-                className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between gap-4"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <RefreshCw className="w-6 h-6 text-indigo-600 animate-spin" />
+        </div>
+      ) : (
+        <>
+          <div className="space-y-4">
+            <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Connected Facebook Account</h3>
+            {facebookAccount ? (
+              <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  {facebookAccount.avatarUrl ? (
                     <img
-                      src={acc.avatarUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=100&fit=crop&q=80"}
-                      alt={acc.name}
-                      className="w-12 h-12 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-800"
+                      src={facebookAccount.avatarUrl}
+                      alt={facebookAccount.name}
+                      className="w-14 h-14 rounded-full object-cover ring-2 ring-blue-200 dark:ring-blue-900"
                     />
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">{acc.name}</h4>
-                      <p className="text-[11px] text-slate-400 capitalize">{acc.platform.replace("_", " ")}</p>
-                      <p className="text-[10px] text-slate-500">{acc.followersCount?.toLocaleString()} followers</p>
+                  ) : (
+                    <UserCircle className="w-14 h-14 text-slate-400" />
+                  )}
+                  <div>
+                    <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">{facebookAccount.name}</h4>
+                    <p className="text-xs text-slate-500">{facebookAccount.username || "Facebook profile connected"}</p>
+                    <p className="text-[10px] text-slate-400">Facebook ID: {facebookAccount.platformId}</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3 h-3" /> Connected
+                </span>
+              </div>
+            ) : (
+              <div className="p-8 rounded-2xl bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-800 text-center space-y-3">
+                <UserCircle className="w-10 h-10 text-slate-400 mx-auto" />
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">No Facebook account connected yet.</p>
+                <button
+                  onClick={handleConnectFacebookOAuth}
+                  disabled={connecting}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1877F2] text-white font-bold text-xs disabled:opacity-60"
+                >
+                  {connecting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                  Continue with Facebook
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Facebook Pages from Graph API</h3>
+
+            {facebookPages.length === 0 ? (
+              <div className="p-8 rounded-2xl bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-800 text-center space-y-3">
+                <Flag className="w-10 h-10 text-slate-400 mx-auto" />
+                <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">No Facebook Pages returned yet.</p>
+                <p className="text-xs text-slate-500 max-w-lg mx-auto">
+                  Reconnect Facebook and approve the Page permissions. Your Meta app must have Page permissions approved for production users.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {facebookPages.map((acc) => (
+                  <div
+                    key={acc.id}
+                    className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between gap-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {acc.avatarUrl ? (
+                          <img
+                            src={acc.avatarUrl}
+                            alt={acc.name}
+                            className="w-12 h-12 rounded-full object-cover ring-2 ring-slate-200 dark:ring-slate-800"
+                          />
+                        ) : (
+                          <Flag className="w-12 h-12 text-slate-400" />
+                        )}
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white">{acc.name}</h4>
+                          <p className="text-[11px] text-slate-400">{acc.category || "Facebook Page"}</p>
+                          <p className="text-[10px] text-slate-500">{acc.followersCount?.toLocaleString()} followers</p>
+                        </div>
+                      </div>
+
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
+                        <CheckCircle2 className="w-3 h-3" /> Connected
+                      </span>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                      <span className="text-slate-400 text-[10px]">Page ID: {acc.platformId}</span>
+                      <button
+                        onClick={() => handleDisconnect(acc.id)}
+                        className="text-slate-400 hover:text-red-600 transition text-xs font-semibold flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Disconnect
+                      </button>
                     </div>
                   </div>
-
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full">
-                    <CheckCircle2 className="w-3 h-3" /> Connected
-                  </span>
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                  <span className="text-slate-400 text-[10px]">ID: {acc.platformId}</span>
-                  <button
-                    onClick={() => handleDisconnect(acc.id)}
-                    className="text-slate-400 hover:text-red-600 transition text-xs font-semibold flex items-center gap-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Disconnect
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Quick Connect Sandbox Preset Accounts */}
-      <div className="p-6 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 space-y-4">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-          Sandbox & Demo Account Shortcuts
-        </h3>
-        <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => handleConnectDemoPage("facebook_page", "Acme Enterprise Facebook")}
-            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 transition"
-          >
-            + Connect Demo Facebook Page
-          </button>
-          <button
-            onClick={() => handleConnectDemoPage("instagram", "Acme Design IG Business")}
-            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 transition"
-          >
-            + Connect Demo Instagram Business
-          </button>
-          <button
-            onClick={() => handleConnectDemoPage("linkedin", "Acme LinkedIn Organization")}
-            className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-50 transition"
-          >
-            + Connect Demo LinkedIn
-          </button>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
