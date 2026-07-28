@@ -1,3 +1,25 @@
+# Deployment
+
+> **Authentication / Facebook Login:** see [AUTHENTICATION.md](./AUTHENTICATION.md)
+> for the required `AUTH_SECRET`, `NEXTAUTH_URL`, `AUTH_FACEBOOK_ID` and
+> `AUTH_FACEBOOK_SECRET` variables and the Meta dashboard setup.
+
+## Vercel
+
+The default target. Vercel auto-detects Next.js — no `vercel.json` needed.
+
+| Setting | Value |
+| --- | --- |
+| Framework | Next.js (auto) |
+| Build command | `next build` (auto) |
+| Install command | `npm install` (auto) |
+
+Add every variable from `.env.example` under
+**Settings → Environment Variables**, then deploy. The OAuth callback is
+`https://fb-ai-tau.vercel.app/api/auth/callback/facebook`.
+
+---
+
 # Deploying to Cloudflare Workers
 
 This app runs on Cloudflare Workers via [`@opennextjs/cloudflare`](https://opennext.js.org/cloudflare).

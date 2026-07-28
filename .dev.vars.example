@@ -8,8 +8,14 @@ DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5432/socialai_db"
 ENCRYPTION_SECRET="change_me_to_a_long_random_string"
 NEXT_PUBLIC_APP_URL="http://localhost:8788"
 
+# Auth.js
+AUTH_SECRET="generate_with_openssl_rand_base64_32"
+NEXTAUTH_URL="http://localhost:8788"
+
+# Facebook Login
+AUTH_FACEBOOK_ID=""
+AUTH_FACEBOOK_SECRET=""
 NEXT_PUBLIC_FACEBOOK_APP_ID=""
-FACEBOOK_APP_SECRET=""
 OPENAI_API_KEY=""
 STRIPE_SECRET_KEY=""
 

@@ -13,7 +13,7 @@ import {
   Layers,
   ChevronDown,
 } from "lucide-react";
-import Link from "next/navigation";
+import { signOut } from "next-auth/react";
 
 interface HeaderProps {
   user: any;
@@ -55,8 +55,8 @@ export function Header({ user }: HeaderProps) {
   };
 
   const handleLogout = async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    window.location.href = "/login";
+    // Clears the Auth.js session cookie and returns to the login page.
+    await signOut({ callbackUrl: "/login" });
   };
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;

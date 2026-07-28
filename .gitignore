@@ -7,8 +7,9 @@ coverage/
 .env*
 !.env.example
 
-# Next.js
+# Next.js / Vercel
 .next/
+.vercel/
 next-env.d.ts
 *.tsbuildinfo
 
