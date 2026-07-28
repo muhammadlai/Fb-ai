@@ -780,3 +780,121 @@ cd ~/nexus-ai-agent/nexus-ai-agent
 git add .
 git commit -m "Backup before Nexus AI merge"
 nano src/App.tsx
+cd src\components
+del CreatorHomeView.tsx
+type nul > CreatorHomeView.tsx
+pwd
+ls
+cd ~/nexus-ai-agent
+pwd
+ls
+cd src/components
+ls
+cd ~/nexus-ai-agent
+code .
+cd ~/nexus-ai-agent
+find . -name "CreatorHomeView.tsx"
+npm install
+npm run dev
+ls -la
+find ~ -name "package.json"
+npm run dev
+[200~cd ~/nexus-test
+npm install
+npm run dev~
+cd ~/nexus-test
+npm install
+npm run dev
+cp -r ~/nexus-ai-agent ~/nexus-ai-agent-backup
+cd ~/nexus-ai-agent/nexus-ai-agent
+ls
+cd src/components
+ls
+cd ~/nexus-ai-agent/nexus-ai-agent
+npm run dev
+cd ~
+ls
+rm -rf nexus-ai-agent
+rm -rf nexus-ai-agent-backup
+rm -rf nexus-temp
+rm -rf nexus-test
+cd ~/nexus-ai-agent/nexus-ai-agent
+[200~cd ~/Downloads~
+cd ~/Downloads
+cd ~
+unzip nexus-ai-creator-os-enterprise-v2.zip
+ls
+git init
+git add .
+git commit -m "Initial commit - Nexus AI Creator OS Enterprise v2"
+https://github.com/muhammadlai/Nexus-AI-OS.git
+cd nexus-ai-creator-os-enterprise-v2
+ls
+git init
+git add .
+git commit -m "Initial commit - Nexus AI Creator OS Enterprise"
+git branch -M main
+git remote add origin https://github.com/muhammadlai/Nexus-AI-OS.git
+git push -u origin main
+cd ~
+ls
+git remote -v
+git remote remove origin
+git remote add origin https://github.com/muhammadlai/Nexus-AI-OS.git
+git remote -v
+git pull origin main --allow-unrelated-histories
+git add .
+git commit -m "Merge local Nexus AI Creator OS"
+git push -u origin main
+git push -u origin main --force
+git push -f origin main
+mkdir Nexus-AI-OS
+unzip nexus-ai-creator-os-enterprise-v2.zip -d Nexus-AI-OS
+cd Nexus-AI-OS
+ls
+git init
+git add .
+git commit -m "Initial Release - Nexus AI Creator OS Enterprise v2"
+git branch -M main
+git remote add origin https://github.com/muhammadlai/Nexus-AI-OS.git
+git push -u origin main
+mkdir Nexus-AI-OS
+unzip nexus-ai-creator-os-enterprise-v2.zip -d Nexus-AI-OS
+cd Nexus-AI-OS
+ls
+git init
+git add .
+git commit -m "Initial Release - Nexus AI Creator OS Enterprise v2"
+git branch -M main
+git remote add origin https://github.com/muhammadlai/Nexus-AI-OS.git
+git push -u origin main
+cd ~
+find . -name "*.zip"
+cd ~/Nexus-AI-OS
+ls -la
+[200~~
+cd ~/Nexus-AI-OS
+rm -rf .git
+git init
+git branch -M main
+git init
+git branch -M main
+git add .
+cd ~/Nexus-AI-OS
+ls -la
+rm -rf Nexus-AI-OS
+rm -rf .git
+git init
+git branch -M main
+git add .
+git commit -m "Initial Release - Nexus AI Creator OS Enterprise v2"
+git remote add origin https://github.com/muhammadlai/Nexus-AI-OS.git
+git push -u origin main --force
+find . -name ".git"
+cd ~/Nexus-AI-OS
+npm install
+npm run build
+ls dist
+git add .
+git commit -m "Production Build"
+git push
