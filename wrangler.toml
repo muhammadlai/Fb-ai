@@ -1,0 +1,68 @@
+#:schema node_modules/wrangler/config-schema.json
+# Cloudflare Workers configuration for the Next.js app built with @opennextjs/cloudflare.
+#
+# `opennextjs-cloudflare build` emits:
+#   .open-next/worker.js  -> the Worker entrypoint (`main`)
+#   .open-next/assets     -> static assets served by the ASSETS binding
+#
+# Deploy with:  bunx opennextjs-cloudflare deploy
+# Preview with: bunx opennextjs-cloudflare preview
+
+name = "socialai-hub"
+main = ".open-next/worker.js"
+
+# `nodejs_compat` requires a compatibility date of 2024-09-23 or later.
+compatibility_date = "2026-07-01"
+compatibility_flags = [
+  # Node.js built-ins (node:crypto, node:buffer, node:net/tls via unenv...).
+  # Required by `pg` (TCP sockets) and by Next.js itself.
+  "nodejs_compat",
+  # Let the Worker fetch its own public URL (used by Next.js server actions,
+  # revalidation and the image loader).
+  "global_fetch_strictly_public",
+]
+
+# Send uncaught exceptions / console output to a Workers Logs dataset.
+[observability]
+enabled = true
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+# Required so the Worker can call itself (ISR revalidation, cache purge...).
+[[services]]
+binding = "WORKER_SELF_REFERENCE"
+service = "socialai-hub"
+
+# Enables `next/image` optimization on Workers.
+[images]
+binding = "IMAGES"
+
+# Public (non-secret) build/runtime variables.
+# Secrets (DATABASE_URL, ENCRYPTION_SECRET, FACEBOOK_APP_SECRET, OPENAI_API_KEY,
+# STRIPE_SECRET_KEY, ...) must NOT live here. Set them with:
+#   bunx wrangler secret put DATABASE_URL
+# or in the Cloudflare dashboard under Workers > Settings > Variables and Secrets.
+[vars]
+NEXTJS_ENV = "production"
+
+# ---------------------------------------------------------------------------
+# Optional: incremental cache (ISR/SSG) backed by R2.
+# Uncomment together with the `r2IncrementalCache` override in open-next.config.ts.
+# ---------------------------------------------------------------------------
+# [[r2_buckets]]
+# binding = "NEXT_INC_CACHE_R2_BUCKET"
+# bucket_name = "socialai-hub-cache"
+
+# ---------------------------------------------------------------------------
+# Optional but strongly recommended for Postgres over Workers.
+# Hyperdrive pools connections so each isolate does not open a new TCP
+# connection to your database.
+#   bunx wrangler hyperdrive create socialai-db --connection-string="postgresql://..."
+# Then paste the returned id below and redeploy. `src/db/index.ts` picks the
+# Hyperdrive connection string up automatically when this binding exists.
+# ---------------------------------------------------------------------------
+# [[hyperdrive]]
+# binding = "HYPERDRIVE"
+# id = "<your-hyperdrive-id>"

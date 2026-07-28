@@ -1,8 +1,62 @@
+# Dependencies
 node_modules/
+
+# Build output
 build/
 dist/
 coverage/
-.DS_Store
-*.log
+.next/
+.vercel/
+next-env.d.ts
+*.tsbuildinfo
+
+# OpenNext / Cloudflare build output
+.open-next/
+.wrangler/
+cloudflare-env.d.ts
+
+# Environment / secrets - never commit these
 .env*
 !.env.example
+.dev.vars
+!.dev.vars.example
+.git-credentials
+.netrc
+*.pem
+*.key
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Sandbox / shell state - these are home-directory artifacts that must never
+# be tracked. The repo root doubles as $HOME in some dev containers.
+.bash_history
+.bash_logout
+.bashrc
+.profile
+.gitconfig
+.viminfo
+.wget-hsts
+.Xauthority
+.sudo_as_admin_successful
+.sommelierrc
+.cache/
+.npm/
+.local/
+.bun/
+.config/
+
+# Archives
+*.zip
+*.tar
+*.tar.gz

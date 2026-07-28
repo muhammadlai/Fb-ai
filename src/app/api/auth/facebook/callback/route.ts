@@ -6,6 +6,7 @@ import { metaAppSettings, connectedAccounts } from "@/db/schema";
 import { decryptToken, encryptToken } from "@/lib/encryption";
 import { eq } from "drizzle-orm";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
@@ -28,9 +29,14 @@ export async function GET(req: Request) {
   const workspaceId = await ensureDefaultWorkspace(user.id);
 
   try {
-    const [settings] = await db.select().from(metaAppSettings);
-    const appId = settings?.appId || process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
-    const appSecret = settings?.encryptedAppSecret ? decryptToken(settings.encryptedAppSecret) : process.env.FACEBOOK_APP_SECRET;
+    const [settings] = await db.select().from(metaAppSettings).limit(1);
+    const appId =
+      settings?.appId ||
+      process.env.AUTH_FACEBOOK_ID ||
+      process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
+    const appSecret = settings?.encryptedAppSecret
+      ? decryptToken(settings.encryptedAppSecret)
+      : process.env.AUTH_FACEBOOK_SECRET || process.env.FACEBOOK_APP_SECRET;
 
     const fb = new FacebookGraphAPI(appId, appSecret);
     const redirectUri = `${baseUrl}/api/auth/facebook/callback`;

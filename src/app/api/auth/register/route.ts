@@ -1,37 +1,59 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
+import crypto from "node:crypto";
+
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { hashPassword, createSessionToken, ensureDefaultWorkspace } from "@/lib/auth";
-import crypto from "crypto";
+import { hashPassword } from "@/lib/auth-utils";
+import { ensureDefaultWorkspace } from "@/lib/auth";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Creates the user record. The client then calls `signIn("credentials", ...)`
+ * so Auth.js issues the session cookie - this route no longer sets one itself.
+ */
 export async function POST(req: Request) {
   try {
     const { name, email, password } = await req.json();
 
     if (!name || !email || !password) {
-      return NextResponse.json({ error: "Name, email and password are required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Name, email and password are required" },
+        { status: 400 }
+      );
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+    if (typeof password !== "string" || password.length < 6) {
+      return NextResponse.json(
+        { error: "Password must be at least 6 characters" },
+        { status: 400 }
+      );
     }
 
-    const [existing] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    const normalizedEmail = String(email).toLowerCase().trim();
+
+    const [existing] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, normalizedEmail))
+      .limit(1);
+
     if (existing) {
-      return NextResponse.json({ error: "Email address is already registered" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Email address is already registered" },
+        { status: 409 }
+      );
     }
 
-    const userId = "usr_" + crypto.randomUUID().slice(0, 8);
-    const passHash = hashPassword(password);
+    const userId = "usr_" + crypto.randomUUID().slice(0, 12);
 
     await db.insert(users).values({
       id: userId,
-      email: email.toLowerCase(),
-      name,
-      passwordHash: passHash,
+      email: normalizedEmail,
+      name: String(name).trim(),
+      passwordHash: hashPassword(password),
       role: "user",
       subscriptionTier: "free",
       aiCreditsUsed: 0,
@@ -39,30 +61,22 @@ export async function POST(req: Request) {
     });
 
     const workspaceId = await ensureDefaultWorkspace(userId);
-    const token = createSessionToken(userId);
 
-    const res = NextResponse.json({
+    return NextResponse.json({
       success: true,
       user: {
         id: userId,
-        email,
+        email: normalizedEmail,
         name,
         role: "user",
         subscriptionTier: "free",
         workspaceId,
       },
     });
-
-    res.cookies.set("session_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
-      path: "/",
-    });
-
-    return res;
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Registration failed" }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Registration failed" },
+      { status: 500 }
+    );
   }
 }

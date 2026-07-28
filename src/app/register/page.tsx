@@ -6,7 +6,7 @@ import { AuthForm } from "@/components/auth/AuthForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({
+export default async function RegisterPage({
   searchParams,
 }: {
   searchParams: Promise<{ callbackUrl?: string; error?: string }>;
@@ -21,7 +21,7 @@ export default async function LoginPage({
   return (
     <Suspense>
       <AuthForm
-        mode="login"
+        mode="register"
         facebookEnabled={facebookConfigured}
         callbackUrl={callbackUrl || "/dashboard"}
         initialError={error}
