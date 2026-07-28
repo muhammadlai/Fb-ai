@@ -1,5 +1,16 @@
 import { decryptToken } from "./encryption";
 
+export interface FacebookProfile {
+  id: string;
+  name?: string;
+  email?: string;
+  picture?: {
+    data?: {
+      url?: string;
+    };
+  };
+}
+
 export interface FacebookPage {
   id: string;
   name: string;
@@ -7,8 +18,8 @@ export interface FacebookPage {
   category?: string;
   tasks?: string[];
   picture?: {
-    data: {
-      url: string;
+    data?: {
+      url?: string;
     };
   };
   fan_count?: number;
@@ -21,133 +32,138 @@ export interface PostPublishResult {
   error?: string;
 }
 
+function facebookErrorMessage(data: unknown, fallback: string) {
+  if (
+    data &&
+    typeof data === "object" &&
+    "error" in data &&
+    data.error &&
+    typeof data.error === "object" &&
+    "message" in data.error &&
+    typeof data.error.message === "string"
+  ) {
+    return data.error.message;
+  }
+  return fallback;
+}
+
+async function readGraphJson<T>(res: Response, fallback: string): Promise<T> {
+  const data = await res.json().catch(() => null);
+  if (!res.ok || (data && typeof data === "object" && "error" in data)) {
+    throw new Error(facebookErrorMessage(data, fallback));
+  }
+  return data as T;
+}
+
 export class FacebookGraphAPI {
   private apiVersion = "v19.0";
   private baseUrl = "https://graph.facebook.com/v19.0";
 
   constructor(private appId?: string, private appSecret?: string) {}
 
-  /**
-   * Generates Facebook OAuth Login URL complying with Meta Platform Policies
-   */
+  private requireAppCredentials() {
+    if (!this.appId || !this.appSecret) {
+      throw new Error("Facebook OAuth is not configured. Set AUTH_FACEBOOK_ID and AUTH_FACEBOOK_SECRET in production.");
+    }
+  }
+
+  /** Generates the official Facebook OAuth URL for Page permissions. */
   getOAuthUrl(redirectUri: string, state?: string): string {
+    if (!this.appId) {
+      throw new Error("Facebook App ID is missing. Set AUTH_FACEBOOK_ID in production.");
+    }
+
     const scopes = [
       "public_profile",
       "email",
       "pages_show_list",
       "pages_read_engagement",
       "pages_manage_posts",
-      "instagram_basic",
-      "instagram_content_publish",
-      "business_management",
     ].join(",");
 
-    const clientId = this.appId || process.env.NEXT_PUBLIC_FACEBOOK_APP_ID || "demo_fb_app_id";
     const params = new URLSearchParams({
-      client_id: clientId,
+      client_id: this.appId,
       redirect_uri: redirectUri,
       scope: scopes,
       response_type: "code",
-      state: state || "socialai_auth_state",
+      auth_type: "rerequest",
+      state: state || crypto.randomUUID(),
     });
 
     return `https://www.facebook.com/${this.apiVersion}/dialog/oauth?${params.toString()}`;
   }
 
-  /**
-   * Exchanges auth code for User Long-Lived Access Token
-   */
+  /** Exchanges a short-lived Facebook user token for a long-lived user token. */
+  async exchangeShortLivedTokenForLongLived(accessToken: string): Promise<{ accessToken: string; expiresIn: number }> {
+    this.requireAppCredentials();
+
+    const url = `${this.baseUrl}/oauth/access_token?${new URLSearchParams({
+      grant_type: "fb_exchange_token",
+      client_id: this.appId!,
+      client_secret: this.appSecret!,
+      fb_exchange_token: accessToken,
+    })}`;
+
+    const data = await readGraphJson<{ access_token?: string; expires_in?: number }>(
+      await fetch(url),
+      "Failed to exchange Facebook access token"
+    );
+
+    return {
+      accessToken: data.access_token || accessToken,
+      expiresIn: data.expires_in || 60 * 24 * 60 * 60,
+    };
+  }
+
+  /** Exchanges an OAuth code for a long-lived user access token. */
   async exchangeCodeForToken(code: string, redirectUri: string): Promise<{ accessToken: string; expiresIn: number }> {
-    if (!this.appId || !this.appSecret) {
-      // Sandbox fallback token generator if keys aren't provided
-      return {
-        accessToken: `EAAG_MOCK_USER_TOKEN_${Date.now()}_${Math.random().toString(36).substring(7)}`,
-        expiresIn: 5184000, // 60 days
-      };
+    this.requireAppCredentials();
+
+    const tokenUrl = `${this.baseUrl}/oauth/access_token?${new URLSearchParams({
+      client_id: this.appId!,
+      client_secret: this.appSecret!,
+      redirect_uri: redirectUri,
+      code,
+    })}`;
+
+    const shortData = await readGraphJson<{ access_token?: string; expires_in?: number }>(
+      await fetch(tokenUrl),
+      "Failed to exchange Facebook OAuth code"
+    );
+
+    if (!shortData.access_token) {
+      throw new Error("Facebook did not return an access token.");
     }
 
-    try {
-      const tokenUrl = `${this.baseUrl}/oauth/access_token?${new URLSearchParams({
-        client_id: this.appId,
-        client_secret: this.appSecret,
-        redirect_uri: redirectUri,
-        code,
-      })}`;
-
-      const res = await fetch(tokenUrl);
-      const data = await res.json();
-
-      if (data.error) {
-        throw new Error(data.error.message || "Failed to exchange code for token");
-      }
-
-      // Exchange short-lived token for long-lived token
-      const longLivedUrl = `${this.baseUrl}/oauth/access_token?${new URLSearchParams({
-        grant_type: "fb_exchange_token",
-        client_id: this.appId,
-        client_secret: this.appSecret,
-        fb_exchange_token: data.access_token,
-      })}`;
-
-      const longRes = await fetch(longLivedUrl);
-      const longData = await longRes.json();
-
-      return {
-        accessToken: longData.access_token || data.access_token,
-        expiresIn: longData.expires_in || 5184000,
-      };
-    } catch (err: any) {
-      console.error("Facebook OAuth exchange error:", err);
-      throw err;
-    }
+    return this.exchangeShortLivedTokenForLongLived(shortData.access_token);
   }
 
-  /**
-   * Retrieves Facebook Pages managed by the authenticated user
-   */
+  /** Fetches the authenticated Facebook user's profile from Graph API. */
+  async getUserProfile(userAccessToken: string): Promise<FacebookProfile> {
+    const url = `${this.baseUrl}/me?${new URLSearchParams({
+      fields: "id,name,email,picture.type(large){url}",
+      access_token: userAccessToken,
+    })}`;
+
+    return readGraphJson<FacebookProfile>(await fetch(url), "Failed to fetch Facebook profile");
+  }
+
+  /** Retrieves Facebook Pages managed by the authenticated user. */
   async getUserPages(userAccessToken: string): Promise<FacebookPage[]> {
-    if (userAccessToken.startsWith("EAAG_MOCK")) {
-      return [
-        {
-          id: "fb_page_101",
-          name: "Acme Tech Official Page",
-          access_token: "EAAG_MOCK_PAGE_TOKEN_ACME",
-          category: "Technology Company",
-          fan_count: 14250,
-          username: "acmetech.official",
-          picture: { data: { url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&h=150&fit=crop&q=80" } },
-        },
-        {
-          id: "fb_page_102",
-          name: "Pulse Marketing Hub",
-          access_token: "EAAG_MOCK_PAGE_TOKEN_PULSE",
-          category: "Digital Agency",
-          fan_count: 8910,
-          username: "pulsemarketing",
-          picture: { data: { url: "https://images.unsplash.com/photo-1557804506-669a67965ba0?w=150&h=150&fit=crop&q=80" } },
-        },
-      ];
-    }
+    const url = `${this.baseUrl}/me/accounts?${new URLSearchParams({
+      fields: "id,name,access_token,category,fan_count,username,picture{url},tasks",
+      access_token: userAccessToken,
+    })}`;
 
-    try {
-      const url = `${this.baseUrl}/me/accounts?fields=id,name,access_token,category,fan_count,username,picture{url}&access_token=${userAccessToken}`;
-      const res = await fetch(url);
-      const data = await res.json();
+    const data = await readGraphJson<{ data?: FacebookPage[] }>(
+      await fetch(url),
+      "Failed to fetch Facebook Pages. Confirm pages_show_list and pages_read_engagement permissions are approved."
+    );
 
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
-
-      return data.data || [];
-    } catch (err: any) {
-      console.error("Error fetching Facebook pages:", err);
-      throw err;
-    }
+    return data.data || [];
   }
 
-  /**
-   * Publishes a post to a Facebook Page via Graph API
-   */
+  /** Publishes a post to a Facebook Page via Graph API. */
   async publishToPage(
     encryptedPageToken: string,
     pageId: string,
@@ -160,121 +176,75 @@ export class FacebookGraphAPI {
   ): Promise<PostPublishResult> {
     const pageAccessToken = decryptToken(encryptedPageToken);
 
-    // Sandbox check
-    if (pageAccessToken.startsWith("EAAG_MOCK") || pageId.startsWith("fb_page_") || pageId.startsWith("ig_page_")) {
-      const mockPostId = `${pageId}_${Date.now()}`;
-      return {
-        id: mockPostId,
-        success: true,
-      };
-    }
-
     try {
       let endpoint = `${this.baseUrl}/${pageId}/feed`;
-      const body: Record<string, any> = {
+      const body: Record<string, string> = {
         message: postData.content,
         access_token: pageAccessToken,
       };
 
       if (postData.scheduledAt) {
         const timestampInSeconds = Math.floor(postData.scheduledAt.getTime() / 1000);
-        body.published = false;
-        body.scheduled_publish_time = timestampInSeconds;
+        body.published = "false";
+        body.scheduled_publish_time = String(timestampInSeconds);
       }
 
-      // If photo or video media is attached
-      if (postData.mediaType === "image" && postData.mediaUrls && postData.mediaUrls.length > 0) {
+      if (postData.mediaType === "image" && postData.mediaUrls?.[0]) {
         endpoint = `${this.baseUrl}/${pageId}/photos`;
         body.url = postData.mediaUrls[0];
         body.caption = postData.content;
         delete body.message;
-      } else if (postData.mediaType === "video" && postData.mediaUrls && postData.mediaUrls.length > 0) {
+      } else if (postData.mediaType === "video" && postData.mediaUrls?.[0]) {
         endpoint = `${this.baseUrl}/${pageId}/videos`;
         body.file_url = postData.mediaUrls[0];
         body.description = postData.content;
         delete body.message;
       }
 
-      const params = new URLSearchParams();
-      for (const [key, val] of Object.entries(body)) {
-        params.append(key, String(val));
-      }
-
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString(),
+        body: new URLSearchParams(body).toString(),
       });
 
-      const result = await res.json();
-
-      if (result.error) {
-        return {
-          id: "",
-          success: false,
-          error: result.error.message || "Facebook API publication failed",
-        };
-      }
+      const result = await readGraphJson<{ id?: string; post_id?: string }>(res, "Facebook API publication failed");
 
       return {
-        id: result.id || result.post_id,
+        id: result.id || result.post_id || "",
         success: true,
       };
-    } catch (err: any) {
+    } catch (err) {
       return {
         id: "",
         success: false,
-        error: err.message || "Failed to communicate with Meta Graph API",
+        error: err instanceof Error ? err.message : "Failed to communicate with Meta Graph API",
       };
     }
   }
 
-  /**
-   * Fetches Insights metrics for a published post
-   */
+  /** Fetches Insights metrics for a published post. */
   async getPostInsights(encryptedPageToken: string, postId: string) {
     const pageAccessToken = decryptToken(encryptedPageToken);
 
-    if (pageAccessToken.startsWith("EAAG_MOCK") || postId.includes("mock") || postId.includes("fb_page_")) {
-      return {
-        impressions: Math.floor(Math.random() * 4000) + 1200,
-        reach: Math.floor(Math.random() * 3000) + 800,
-        likes: Math.floor(Math.random() * 250) + 40,
-        comments: Math.floor(Math.random() * 35) + 5,
-        shares: Math.floor(Math.random() * 20) + 2,
-        clicks: Math.floor(Math.random() * 180) + 15,
-        engagementRate: parseFloat((Math.random() * 4 + 2.5).toFixed(2)),
-      };
-    }
+    const url = `${this.baseUrl}/${postId}/insights?${new URLSearchParams({
+      metric: "post_impressions_unique,post_engaged_users,post_clicks,post_reactions_by_type_total",
+      access_token: pageAccessToken,
+    })}`;
 
-    try {
-      const url = `${this.baseUrl}/${postId}/insights?metric=post_impressions_unique,post_engaged_users,post_clicks,post_reactions_by_type_total&access_token=${pageAccessToken}`;
-      const res = await fetch(url);
-      const data = await res.json();
+    const data = await readGraphJson<{
+      data?: Array<{ values?: Array<{ value?: number | Record<string, number> }> }>;
+    }>(await fetch(url), "Failed to fetch Facebook post insights");
 
-      if (data.error) {
-        throw new Error(data.error.message);
-      }
+    const reactions = data.data?.[3]?.values?.[0]?.value;
 
-      return {
-        impressions: data.data?.[0]?.values?.[0]?.value || 0,
-        reach: data.data?.[1]?.values?.[0]?.value || 0,
-        likes: data.data?.[3]?.values?.[0]?.value?.like || 0,
-        comments: 0,
-        shares: 0,
-        clicks: data.data?.[2]?.values?.[0]?.value || 0,
-        engagementRate: 3.8,
-      };
-    } catch {
-      return {
-        impressions: 1520,
-        reach: 1200,
-        likes: 95,
-        comments: 14,
-        shares: 8,
-        clicks: 110,
-        engagementRate: 4.2,
-      };
-    }
+    return {
+      impressions: Number(data.data?.[0]?.values?.[0]?.value || 0),
+      reach: Number(data.data?.[1]?.values?.[0]?.value || 0),
+      likes: typeof reactions === "object" ? reactions.like || 0 : 0,
+      comments: 0,
+      shares: 0,
+      clicks: Number(data.data?.[2]?.values?.[0]?.value || 0),
+      engagementRate: 0,
+    };
   }
 }

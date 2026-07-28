@@ -4,11 +4,10 @@ Auth is handled by **Auth.js (NextAuth v5)** with two providers:
 
 | Provider      | Purpose                                            |
 | ------------- | -------------------------------------------------- |
-| `facebook`    | "Continue with Facebook" one-click login            |
+| `facebook`    | Real Facebook OAuth login + Graph API profile/Page import |
 | `credentials` | Email + password (register / log in)                |
 
-Sessions are **JWT-based**, so no `accounts`/`sessions` tables are needed and
-the existing Drizzle schema is unchanged.
+Sessions are **JWT-based**, so no Auth.js `accounts`/`sessions` tables are needed. Facebook user and Page access tokens are encrypted and stored in the existing `connected_accounts` table.
 
 ---
 
@@ -87,6 +86,8 @@ In <https://developers.facebook.com/apps> → your app:
         ──▶ user approves
         ──▶ https://fb-ai-tau.vercel.app/api/auth/callback/facebook?code=…
         ──▶ signIn callback upserts the user in `users`
+        ──▶ Graph API fetches `/me` and `/me/accounts`
+        ──▶ encrypted user + Page tokens are stored in `connected_accounts`
         ──▶ redirect to /dashboard
 ```
 
@@ -103,7 +104,7 @@ In <https://developers.facebook.com/apps> → your app:
 | `/api/auth/[...nextauth]` | All Auth.js endpoints incl. the Facebook callback |
 | `/api/auth/register` | Creates the user, then the client calls `signIn()` |
 | `/api/auth/me` | Current user + workspace |
-| `/api/auth/facebook` + `/callback` | Separate **Page-connection** flow (business scopes), requires an existing session |
+| `/api/auth/facebook` + `/callback` | Reconnect/import Page permissions for an existing session |
 
 `/api/auth/login` and `/api/auth/logout` were **removed** — Auth.js provides
 `/api/auth/callback/credentials` and `/api/auth/signout`.
@@ -138,9 +139,7 @@ bun run dev
 
 Set `NEXTAUTH_URL=http://localhost:3000` locally.
 
-If `AUTH_FACEBOOK_ID` / `AUTH_FACEBOOK_SECRET` are absent, the Facebook button
-is replaced by a short "not configured" note and email/password still works —
-so the app never shows a dead button.
+`AUTH_FACEBOOK_ID` and `AUTH_FACEBOOK_SECRET` are required for production Facebook OAuth. The UI always shows the real **Continue with Facebook** button; if the server environment is missing those values Auth.js returns a configuration error instead of using a fake/demo login.
 
 ---
 
@@ -153,6 +152,8 @@ so the app never shows a dead button.
   `https://fb-ai-tau.vercel.app/api/auth/callback/facebook`
 - `signIn("facebook")` → `https://www.facebook.com/v19.0/dialog/oauth` with the
   correct `client_id`, `redirect_uri`, `scope` and PKCE verifier
+- Successful Facebook login fetches the profile and managed Pages from Graph API
+- Access tokens are stored encrypted and are never returned by `/api/accounts`
 - Credentials login issues a session cookie and `/dashboard` renders
 - Wrong password → `?error=CredentialsSignin`, **no** cookie
 - `next build` (Vercel, npm, clean clone) and `opennextjs-cloudflare build` both pass

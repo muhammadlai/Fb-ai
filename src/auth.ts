@@ -5,15 +5,18 @@ import { eq } from "drizzle-orm";
 import crypto from "node:crypto";
 
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { connectedAccounts, users, workspaceMembers, workspaces } from "@/db/schema";
 import { hashPassword } from "@/lib/auth-utils";
+import { encryptToken } from "@/lib/encryption";
+import { FacebookGraphAPI } from "@/lib/facebook-api";
 
 /**
  * Auth.js (NextAuth v5) configuration.
  *
- * Session strategy is JWT (not database), so no `accounts`/`sessions` tables
- * are required and the existing Drizzle schema works unchanged. Users are
- * still persisted to the `users` table by the `signIn` callback below.
+ * The Facebook provider is always registered so the login page can always start
+ * the real Meta OAuth flow. If the production environment is missing the
+ * Facebook App ID/secret, Auth.js returns a configuration error instead of
+ * falling back to a fake/demo login.
  */
 
 declare module "next-auth" {
@@ -28,12 +31,27 @@ declare module "next-auth" {
   }
 }
 
-/** Facebook is only offered when real credentials are configured. */
-export const facebookConfigured = Boolean(
-  process.env.AUTH_FACEBOOK_ID && process.env.AUTH_FACEBOOK_SECRET
-);
+export const facebookConfigured = true;
 
 type DbUser = typeof users.$inferSelect;
+
+function facebookClientId() {
+  return (
+    process.env.AUTH_FACEBOOK_ID ||
+    process.env.FACEBOOK_CLIENT_ID ||
+    process.env.NEXT_PUBLIC_FACEBOOK_APP_ID ||
+    ""
+  );
+}
+
+function facebookClientSecret() {
+  return (
+    process.env.AUTH_FACEBOOK_SECRET ||
+    process.env.FACEBOOK_CLIENT_SECRET ||
+    process.env.FACEBOOK_APP_SECRET ||
+    ""
+  );
+}
 
 async function findUserByEmail(email: string): Promise<DbUser | undefined> {
   const [row] = await db.select().from(users).where(eq(users.email, email.toLowerCase())).limit(1);
@@ -55,11 +73,17 @@ async function upsertOAuthUser(params: {
       .update(users)
       .set({
         facebookId: params.providerAccountId ?? existing.facebookId,
-        avatarUrl: existing.avatarUrl ?? params.image ?? null,
+        avatarUrl: params.image ?? existing.avatarUrl ?? null,
+        name: params.name || existing.name,
         updatedAt: new Date(),
       })
       .where(eq(users.id, existing.id));
-    return { ...existing, facebookId: params.providerAccountId ?? existing.facebookId };
+    return {
+      ...existing,
+      facebookId: params.providerAccountId ?? existing.facebookId,
+      avatarUrl: params.image ?? existing.avatarUrl,
+      name: params.name || existing.name,
+    };
   }
 
   const id = "usr_" + crypto.randomUUID().slice(0, 12);
@@ -81,6 +105,120 @@ async function upsertOAuthUser(params: {
   return created;
 }
 
+async function ensureUserWorkspace(userId: string, userName?: string | null): Promise<string> {
+  const existingMemberships = await db
+    .select()
+    .from(workspaceMembers)
+    .where(eq(workspaceMembers.userId, userId))
+    .limit(1);
+
+  if (existingMemberships[0]) return existingMemberships[0].workspaceId;
+
+  const workspaceId = "ws_" + crypto.randomUUID().slice(0, 8);
+
+  await db
+    .insert(workspaces)
+    .values({
+      id: workspaceId,
+      name: `${userName || "Facebook User"}'s Workspace`,
+      ownerId: userId,
+      plan: "free",
+    })
+    .onConflictDoNothing();
+
+  await db
+    .insert(workspaceMembers)
+    .values({
+      id: "wm_" + crypto.randomUUID().slice(0, 8),
+      workspaceId,
+      userId,
+      role: "owner",
+      status: "active",
+    })
+    .onConflictDoNothing();
+
+  return workspaceId;
+}
+
+async function storeFacebookConnection(params: {
+  userId: string;
+  workspaceId: string;
+  userAccessToken: string;
+  tokenExpiresAt: Date | null;
+}) {
+  const fb = new FacebookGraphAPI(facebookClientId(), facebookClientSecret());
+
+  const profile = await fb.getUserProfile(params.userAccessToken);
+  const encryptedUserToken = encryptToken(params.userAccessToken);
+
+  await db
+    .insert(connectedAccounts)
+    .values({
+      id: `acc_fb_user_${params.userId}`,
+      workspaceId: params.workspaceId,
+      platform: "facebook_user",
+      platformId: profile.id,
+      name: profile.name || "Facebook User",
+      username: profile.email || null,
+      category: "Facebook Account",
+      avatarUrl: profile.picture?.data?.url || null,
+      followersCount: 0,
+      encryptedAccessToken: encryptedUserToken,
+      tokenExpiresAt: params.tokenExpiresAt,
+      status: "connected",
+    })
+    .onConflictDoUpdate({
+      target: connectedAccounts.id,
+      set: {
+        platformId: profile.id,
+        name: profile.name || "Facebook User",
+        username: profile.email || null,
+        avatarUrl: profile.picture?.data?.url || null,
+        encryptedAccessToken: encryptedUserToken,
+        tokenExpiresAt: params.tokenExpiresAt,
+        status: "connected",
+      },
+    });
+
+  const pages = await fb.getUserPages(params.userAccessToken);
+
+  for (const page of pages) {
+    if (!page.access_token) continue;
+
+    const encryptedPageToken = encryptToken(page.access_token);
+    const pageAccountId = `acc_fb_page_${params.workspaceId}_${page.id}`;
+
+    await db
+      .insert(connectedAccounts)
+      .values({
+        id: pageAccountId,
+        workspaceId: params.workspaceId,
+        platform: "facebook_page",
+        platformId: page.id,
+        name: page.name,
+        username: page.username || null,
+        category: page.category || "Facebook Page",
+        avatarUrl: page.picture?.data?.url || null,
+        followersCount: page.fan_count || 0,
+        encryptedAccessToken: encryptedPageToken,
+        tokenExpiresAt: null,
+        status: "connected",
+      })
+      .onConflictDoUpdate({
+        target: connectedAccounts.id,
+        set: {
+          name: page.name,
+          username: page.username || null,
+          category: page.category || "Facebook Page",
+          avatarUrl: page.picture?.data?.url || null,
+          followersCount: page.fan_count || 0,
+          encryptedAccessToken: encryptedPageToken,
+          status: "connected",
+        },
+      });
+  }
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   // Vercel sets VERCEL_URL; AUTH_TRUST_HOST lets Auth.js honour the forwarded
   // host so callback URLs are correct on preview and production deployments.
@@ -95,24 +233,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
 
   providers: [
-    ...(facebookConfigured
-      ? [
-          Facebook({
-            clientId: process.env.AUTH_FACEBOOK_ID!,
-            clientSecret: process.env.AUTH_FACEBOOK_SECRET!,
-            authorization: {
-              params: {
-                // `email` + `public_profile` are granted without App Review.
-                // Page-management scopes are requested separately from
-                // /dashboard/accounts once the user connects a Page.
-                scope: "email,public_profile",
-              },
-            },
-            // Facebook may omit `email` when the account has none verified.
-            allowDangerousEmailAccountLinking: true,
-          }),
-        ]
-      : []),
+    Facebook({
+      clientId: facebookClientId(),
+      clientSecret: facebookClientSecret(),
+      authorization: {
+        url: "https://www.facebook.com/v19.0/dialog/oauth",
+        params: {
+          scope: [
+            "email",
+            "public_profile",
+            "pages_show_list",
+            "pages_read_engagement",
+            "pages_manage_posts",
+          ].join(","),
+          auth_type: "rerequest",
+        },
+      },
+      profile(profile) {
+        return {
+          id: profile.id,
+          name: profile.name,
+          email: profile.email || `${profile.id}@facebook.local`,
+          image: profile.picture?.data?.url,
+        };
+      },
+      allowDangerousEmailAccountLinking: true,
+    }),
 
     Credentials({
       id: "credentials",
@@ -165,6 +311,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         providerAccountId: account.providerAccountId,
       });
 
+      const workspaceId = await ensureUserWorkspace(record.id, record.name);
+
+      const shortLivedAccessToken = typeof account.access_token === "string" ? account.access_token : "";
+      if (shortLivedAccessToken) {
+        const fb = new FacebookGraphAPI(facebookClientId(), facebookClientSecret());
+        const token = await fb.exchangeShortLivedTokenForLongLived(shortLivedAccessToken);
+        await storeFacebookConnection({
+          userId: record.id,
+          workspaceId,
+          userAccessToken: token.accessToken,
+          tokenExpiresAt: token.expiresIn ? new Date(Date.now() + token.expiresIn * 1000) : null,
+        });
+      }
+
       // Hand the internal id to the jwt callback.
       user.id = record.id;
       return true;
@@ -203,7 +363,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async redirect({ url, baseUrl }) {
       if (url.startsWith("/")) return `${baseUrl}${url}`;
       try {
-        if (new URL(url).origin === baseUrl) return url;
+        const parsed = new URL(url);
+        if (parsed.origin === baseUrl) return url;
       } catch {
         /* fall through */
       }
