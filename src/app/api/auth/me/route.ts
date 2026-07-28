@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, ensureDefaultWorkspace } from "@/lib/auth";
-import { seedDatabaseIfEmpty } from "@/lib/seed";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    await seedDatabaseIfEmpty();
     const user = await getCurrentUser();
 
     if (!user) {

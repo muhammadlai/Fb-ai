@@ -6,3 +6,15 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo
+
+# OpenNext / Cloudflare build output
+.open-next/
+.wrangler/
+cloudflare-env.d.ts
+.dev.vars
+!.dev.vars.example

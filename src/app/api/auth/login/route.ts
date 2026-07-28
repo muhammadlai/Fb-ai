@@ -3,13 +3,11 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword, createSessionToken, ensureDefaultWorkspace } from "@/lib/auth";
-import { seedDatabaseIfEmpty } from "@/lib/seed";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    await seedDatabaseIfEmpty();
     const { email, password } = await req.json();
 
     if (!email || !password) {

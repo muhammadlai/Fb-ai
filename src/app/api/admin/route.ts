@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { users, metaAppSettings, systemLogs, posts, connectedAccounts } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { encryptToken, decryptToken } from "@/lib/encryption";
-import crypto from "crypto";
+import crypto from "node:crypto";
 
 export const dynamic = "force-dynamic";
 

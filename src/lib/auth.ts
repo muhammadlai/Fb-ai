@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { db } from "@/db";
 import { users, workspaces, workspaceMembers } from "@/db/schema";
 import { eq } from "drizzle-orm";

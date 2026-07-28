@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { posts, connectedAccounts, postAnalytics, queueSchedules, notifications } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { FacebookGraphAPI } from "@/lib/facebook-api";
-import crypto from "crypto";
+import crypto from "node:crypto";
 
 export const dynamic = "force-dynamic";
 

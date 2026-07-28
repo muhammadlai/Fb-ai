@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { hashPassword, createSessionToken, ensureDefaultWorkspace } from "@/lib/auth";
-import crypto from "crypto";
+import crypto from "node:crypto";
 
 export const dynamic = "force-dynamic";
 

@@ -2,11 +2,40 @@ import { db } from "@/db";
 import { users, workspaces, workspaceMembers, connectedAccounts, posts, postAnalytics, queueSchedules, notifications, metaAppSettings } from "@/db/schema";
 import { encryptToken } from "./encryption";
 import { hashPassword } from "./auth";
-import { eq } from "drizzle-orm";
 
-export async function seedDatabaseIfEmpty() {
+/**
+ * Seeding is opt-in.
+ *
+ * On Cloudflare Workers every request may run in a fresh isolate, so a seed
+ * routine wired into hot paths would run over and over and race with itself.
+ * Enable it explicitly (e.g. once after provisioning the database) with:
+ *
+ *   SEED_DEMO_DATA=true
+ *
+ * Every insert below is idempotent (`onConflictDoNothing`) and the whole
+ * routine is single-flighted per isolate, so concurrent requests cannot
+ * produce duplicate-key errors.
+ */
+const seedingDisabled = () =>
+  String(process.env.SEED_DEMO_DATA ?? "").toLowerCase() !== "true";
+
+let seedPromise: Promise<void> | null = null;
+
+export async function seedDatabaseIfEmpty(): Promise<void> {
+  if (seedingDisabled()) return;
+  if (!seedPromise) {
+    seedPromise = runSeed().catch((err) => {
+      // Allow a later request to retry if this attempt failed.
+      seedPromise = null;
+      throw err;
+    });
+  }
+  return seedPromise;
+}
+
+async function runSeed(): Promise<void> {
   try {
-    const existingUsers = await db.select().from(users);
+    const existingUsers = await db.select({ id: users.id }).from(users).limit(1);
     if (existingUsers.length > 0) {
       return; // Database already has data
     }
@@ -28,7 +57,7 @@ export async function seedDatabaseIfEmpty() {
       subscriptionStatus: "active",
       aiCreditsUsed: 12,
       aiCreditsLimit: 500,
-    });
+    }).onConflictDoNothing();
 
     // 2. Create Default Workspace
     const workspaceId = "ws_primary_001";
@@ -37,7 +66,7 @@ export async function seedDatabaseIfEmpty() {
       name: "Acme Brand Global",
       ownerId: demoUserId,
       plan: "pro",
-    });
+    }).onConflictDoNothing();
 
     await db.insert(workspaceMembers).values({
       id: "wm_001",
@@ -45,7 +74,7 @@ export async function seedDatabaseIfEmpty() {
       userId: demoUserId,
       role: "owner",
       status: "active",
-    });
+    }).onConflictDoNothing();
 
     // Team members
     const teamUser2 = "usr_team_sarah";
@@ -56,7 +85,7 @@ export async function seedDatabaseIfEmpty() {
       avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&q=80",
       role: "user",
       subscriptionTier: "pro",
-    });
+    }).onConflictDoNothing();
 
     await db.insert(workspaceMembers).values({
       id: "wm_002",
@@ -64,7 +93,7 @@ export async function seedDatabaseIfEmpty() {
       userId: teamUser2,
       role: "editor",
       status: "active",
-    });
+    }).onConflictDoNothing();
 
     // 3. Create Connected Accounts
     const account1Id = "acc_fb_page_1";
@@ -111,7 +140,7 @@ export async function seedDatabaseIfEmpty() {
         encryptedAccessToken: encryptToken("EAAG_MOCK_LI_TOKEN_ACME"),
         status: "connected",
       },
-    ]);
+    ]).onConflictDoNothing();
 
     // 4. Create Queue Schedules
     const defaultTimeSlots = ["09:00", "13:30", "17:00"];
@@ -125,7 +154,7 @@ export async function seedDatabaseIfEmpty() {
           dayOfWeek: day,
           timeSlot: slot,
           isEnabled: day !== 0 && day !== 6, // Enable weekdays by default
-        });
+        }).onConflictDoNothing();
       }
     }
 
@@ -150,7 +179,7 @@ export async function seedDatabaseIfEmpty() {
       hashtags: ["#SaaS", "#AIMarketing", "#Productivity"],
       aiGenerated: true,
       aiTone: "engaging",
-    });
+    }).onConflictDoNothing();
 
     await db.insert(postAnalytics).values({
       id: "pa_101",
@@ -162,7 +191,7 @@ export async function seedDatabaseIfEmpty() {
       shares: 23,
       clicks: 184,
       engagementRate: 7.2,
-    });
+    }).onConflictDoNothing();
 
     const post2Id = "post_sch_102";
     await db.insert(posts).values({
@@ -178,7 +207,7 @@ export async function seedDatabaseIfEmpty() {
       hashtags: ["#GrowthStrategy", "#SocialMediaTips"],
       aiGenerated: true,
       aiTone: "educational",
-    });
+    }).onConflictDoNothing();
 
     await db.insert(posts).values({
       id: "post_que_103",
@@ -192,7 +221,7 @@ export async function seedDatabaseIfEmpty() {
       scheduledAt: in3Days,
       hashtags: ["#DesignInspiration", "#UIUX"],
       aiGenerated: false,
-    });
+    }).onConflictDoNothing();
 
     await db.insert(posts).values({
       id: "post_app_104",
@@ -206,7 +235,7 @@ export async function seedDatabaseIfEmpty() {
       scheduledAt: in5Days,
       hashtags: ["#Enterprise", "#CompanyNews"],
       reviewNotes: "Please review the financial figures before publishing.",
-    });
+    }).onConflictDoNothing();
 
     await db.insert(posts).values({
       id: "post_dft_105",
@@ -217,7 +246,7 @@ export async function seedDatabaseIfEmpty() {
       mediaUrls: [],
       mediaType: "none",
       status: "draft",
-    });
+    }).onConflictDoNothing();
 
     // 6. Create System & Meta Settings
     await db.insert(metaAppSettings).values({
@@ -226,7 +255,7 @@ export async function seedDatabaseIfEmpty() {
       encryptedAppSecret: encryptToken(process.env.FACEBOOK_APP_SECRET || "meta_secret_demo_key"),
       webhookVerifyToken: "socialai_verify_token_2026",
       environment: "sandbox",
-    });
+    }).onConflictDoNothing();
 
     // 7. Notifications
     await db.insert(notifications).values([
@@ -248,7 +277,7 @@ export async function seedDatabaseIfEmpty() {
         isRead: false,
         link: "/dashboard/queue",
       },
-    ]);
+    ]).onConflictDoNothing();
 
     console.log("✅ Seed completed successfully.");
   } catch (err) {
